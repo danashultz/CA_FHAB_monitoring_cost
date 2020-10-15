@@ -37,7 +37,10 @@ bo2 <- bo1*0.5
 ########## Shiny UI ##########
 
 ui <- fluidPage(
-  titlePanel("FHAB Monitoring Cost Shiny App"), 
+  titlePanel(h1("FHAB Monitoring Cost Shiny App",h4("This is a draft website to estimate the cost of an
+                                                    FHABs Ambient Monitoring Program. Do not use without prior
+                                                    consulting with Jayme Smith (jaymes@sccwrp.org) and Keith
+                                                    Bouma-Gregson (keith.bouma-gregson@waterboards.ca.gov)"))), 
   sidebarLayout(
     sidebarPanel("Enter information about proposed field plan in the boxes below",
                  
@@ -74,7 +77,13 @@ ui <- fluidPage(
                    choices = c("Microcystin", "Cylindrospermopsin", "Anatoxin", "Saxitoxin")),
     checkboxGroupInput(inputId = "micros",
                   label = "Will microscopy ID be conducted?",
-                  choices = "Yes")
+                  choices = "Yes"),
+#add agency logos
+tags$hr(),
+img(src = "Final logo DarkerFishSmall5inRGB_72dpi.png", height = 100, width = 137, style = "display:block;margin-left: auto; margin-right: auto;"),
+tags$hr(),
+img(src = "SWAMP_logo_RGB.png", height = 120, width = 100, style = "display:block;margin-left: auto; margin-right: auto;")
+
     ),       
 
 #Specify WHERE TO PUT outputs
