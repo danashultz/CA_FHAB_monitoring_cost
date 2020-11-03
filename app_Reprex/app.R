@@ -90,14 +90,21 @@ server <- function(input, output) {
         else {
             "No Microscopy ID costs"}
     }) 
+    
+    # Create a new reactive expression to be called below.
+    Perc_cost <- reactive({ c( 
+        paste(((length(input$ELISA)*ec)/((length(input$ELISA)*ec) + (length(input$micros)*mi)))*100,"%"),
+        paste(((length(input$micros)*mi)/((length(input$ELISA)*ec) + (length(input$micros)*mi)))*100,"%")
+        ) 
+        })
 
     #Create a data frames from reactive variables for plotting
     a <-   reactive ( {
-        data.frame(ELISA = e1(), microscopy = m1(),
+        data.frame(ELISA = e1(), Microscopy = m1(),
                    stringsAsFactors = TRUE) %>%
             gather(factor_key = TRUE) %>%
             rename("cost" = "value") %>% 
-            add_column(test = c(1,2))
+            add_column(Percent = Perc_cost())
     } )
     
 #Things I have tried to create a new column:
