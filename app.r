@@ -10,6 +10,7 @@
 library(shiny)
 library(tidyverse)
 library(readxl)
+library(viridis)
 
 explanation <- read_excel("ExplanationOfCalculations.xlsx")
 
@@ -65,35 +66,39 @@ ui <- fluidPage(
 #BLOCK 1 - FIELD COSTS
       numericInput(inputId = "waterbodies",
         label = "Number of waterbodies",
-        value = 50),
+        value = 50, min = 0),
       numericInput(inputId = "shore",
         label = "Number of shore stations per waterbody",
-        value = 2),
+        value = 2, min = 0),
       numericInput(inputId = "boat",
         label = "Number of boat stations per waterbody",
-        value = 0),
+        value = 0, min = 0),
     
 #BLOCK 2 - RECURRENCE
     numericInput(inputId = "period",
                  label = "Sampling period (weeks)",
-                 value = 20),
+                 value = 20, min = 0),
     numericInput(inputId = "interval",
                  label = "Sampling interval (weeks between visits)",
-                 value = 2),
+                 value = 2, min = 0),
     
 #BLOCK 3 - Selection of Indicators
     checkboxGroupInput(inputId = "wq",
                        label = "Select water quality measurements",
-                       choices = c("Total Nitrogen"=1, "Total Phosphorus"=2,"Chlorophyll-a"=3, "Phycocyanin" = 4,"Suspended Solids"=5)),
+                       choices = c("Total Nitrogen"=1, "Total Phosphorus"=2,"Chlorophyll-a"=3, "Phycocyanin" = 4,"Suspended Solids"=5),
+                       selected = 1:5),
     checkboxGroupInput(inputId = "ELISA",
                        label = "Select toxins to measure with ELISA",
-                       choices = c("Microcystin", "Cylindrospermopsin", "Anatoxin", "Saxitoxin")),
+                       choices = c("Microcystin"=1, "Cylindrospermopsin"=2, "Anatoxin"=3, "Saxitoxin"=4),
+                       selected = 1:4),
     checkboxGroupInput(inputId = "qPCR",
                        label = "Select toxins genes to quantify with qPCR",
-                       choices = c("Microcystin", "Cylindrospermopsin", "Anatoxin", "Saxitoxin")),
+                       choices = c("Microcystin"=1, "Cylindrospermopsin"=2, "Anatoxin"=3, "Saxitoxin"=4),
+                       selected = 1:4),
     checkboxGroupInput(inputId = "micros",
                        label = "Will microscopy ID be conducted?",
-                       choices = "Yes"),
+                       choices = "Yes",
+                       selected = "Yes"),
 #add agency logos
 #tags$hr(),
 #img(src = "Final logo DarkerFishSmall5inRGB_72dpi.png", height = 100, width = 137, style = "display:block;margin-left: auto; margin-right: auto;"),
@@ -136,20 +141,18 @@ img(src = "SWAMP_logo_RGB.png", height = 120, width = 100)
                  textOutput(outputId = "Microscopy"),
                  br(),
                  tags$b(tags$em(textOutput(outputId = "CyanotoxSum"))),
+                 tags$hr(),
+                 tags$h3("Total Cost of FHAB Monitoring Program"),
+                 textOutput(outputId = "siteCost"),
+                 textOutput(outputId = "visitCost"),
+                 tags$b(tags$em(textOutput(outputId = "program"))),
                  tags$hr()),
         
         tabPanel("Explanation of Cost",
                  tableOutput('table')),
         tabPanel("Plot_Dev",
+                 tableOutput('table_b'), 
                  tableOutput('table_a'),
-                 tableOutput('table_b'),
-                 tableOutput('myFirstLevel'),
-                 tableOutput('mySecondLevel'),
-                 tableOutput('myThirdLevel'),
-                 textOutput('sumTotalCost'),
-                 plotOutput('plot_level1'),
-                 plotOutput('plot_level2.1'),
-                 plotOutput('plot_level2.2'),
                  plotOutput('plot_level3.1'),
                  plotOutput('plot_level3.2'))
         ) #close out tabs
@@ -203,7 +206,7 @@ server <- function(input, output) {
 FieldCostSum <- reactive ( {
   s1()+s2()+b1()+b2()
 })
-  
+
   #Cost of water quality analyses
   w1<- reactive( {length(input$wq)*wq*N() })
   
@@ -224,7 +227,18 @@ FieldCostSum <- reactive ( {
   CyanotoxSum <- reactive( {
     e1()+qp1()+qa1()+m1()
   }) 
+
+  siteCost <- reactive({
+    (s1()+s2()+b1()+b2()+(length(input$wq)*wq*N())+e1()+qp1()+qa1()+m1())/input$waterbodies
+  })
   
+   visitCost<- reactive({
+    (s1()+s2()+b1()+b2()+(length(input$wq)*wq*N())+e1()+qp1()+qa1()+m1())/input$waterbodies/vis()
+  })
+  
+  prog <- reactive({
+    s1()+s2()+b1()+b2()+(length(input$wq)*wq*N())+e1()+qp1()+qa1()+m1()
+  })    
 #Create outputs
 
 ####FIELD WORK COSTS####  
@@ -234,18 +248,18 @@ FieldCostSum <- reactive ( {
     
 #Visits as calculated in vis() above  
   output$visits <- renderText({
-    paste("Number or visits to each waterbody:", vis())
+    paste("Number or visits to each waterbody:", format(vis(), big.mark = ",", scientific = FALSE))
   })
   
-#Visits as calculated in vis() above  
+#Sites as calculated in N() above  
   output$sites <- renderText({
-    paste("Total stations visited (and samples collected) during program:", N())
+    paste("Total stations visited (and samples collected) during program:", format(N(), big.mark = ",", scientific = FALSE))
   })  
   
 #Cost of first shore station if input$shore>0
   output$shore1 <- renderText({
     if (input$shore > 0) {
-    paste("First shore site across waterbodies: $", s1())}
+    paste("First shore site across waterbodies: $", format(s1(), big.mark = ",", scientific = FALSE))}
     else {
       "No shore stations"}
   })
@@ -253,7 +267,8 @@ FieldCostSum <- reactive ( {
 #Cost of any additional shore stations if shore>1
   output$shore2 <- renderText({
     if (input$shore > 1) {
-    paste("Additional shore sites across waterbodies: $", s2())}
+    paste("Additional shore sites across waterbodies: $",
+          format(s2(), big.mark = ",", scientific = FALSE))}
     else {
           "No additional shore stations"}
   })
@@ -261,7 +276,7 @@ FieldCostSum <- reactive ( {
 #Cost of first boat station if input$boat>0
   output$boat1 <- renderText({
     if (input$boat > 0) {
-    paste("First boat site across waterbodies: $",b1())}
+    paste("First boat site across waterbodies: $",format(b1(), big.mark = ",", scientific = FALSE))}
     else {
             "No boat stations"}
   })
@@ -269,35 +284,23 @@ FieldCostSum <- reactive ( {
 #Cost of first boat station if input$boat>0
   output$boat2 <- renderText({
     if (input$boat > 1) {
-    paste("Additional boat sites across waterbodies: $",b2())}
+    paste("Additional boat sites across waterbodies: $",format(b2(), big.mark = ",", scientific = FALSE))}
     else {
             "No additional boat stations"}
   })
   
-  # output$FieldCostSum <- renderText({
-  #   if (input$boat == 0 & input$shore == 0) {
-  #     paste("No field costs")
-  #   } else if (input$shore == 0) {
-  #     paste("Sum of field costs: $",(b1()+b2()))
-  #   } else if (input$boat == 0) {
-  #     paste("Sum of field costs: $",(s1()+s2()))
-  #   } else 
-  #     paste("Sum of field costs: $", (s1()+s2()+b1()+b2()))
-  # })
-  
 output$FieldCostSum <- renderText({
   if (FieldCostSum() > 1) {
-    paste("Sum of field costs: $",FieldCostSum())}
+    paste("Sum of field costs: $", format(FieldCostSum(), big.mark = ",", scientific = FALSE))}
   else {
     "No field costs"}
 })
 
-  
 #### WATER QUALITY COSTS ####
   
   output$waterquality <- renderText({
     if (length(input$wq > 1)) {
-      paste("Sum of WQ analysis costs: $",w1())}
+      paste("Sum of WQ analysis costs: $",format(w1(), big.mark = ",", scientific = FALSE))}
     else {
               "No Water Quality Costs"}
   })  
@@ -307,7 +310,7 @@ output$FieldCostSum <- renderText({
 #ELISA  
   output$ELISA <- renderText({
     if (length(input$ELISA > 1)) {
-      paste("ELISA: $",e1())}
+      paste("ELISA: $", format(e1(), big.mark = ",", scientific = FALSE))}
     else {
               "No ELISA costs"}
   })  
@@ -316,7 +319,7 @@ output$FieldCostSum <- renderText({
 #prep - cost per sample (maybe this is an extraction step?)
   output$qPCR_prep <- renderText({
     if (length(input$qPCR > 1)) {
-      paste("qPCR prep: $",qp1())}
+      paste("qPCR prep: $", format(qp1(), big.mark = ",", scientific = FALSE))}
     else {
               "No qPCR prep costs"}
   })
@@ -324,177 +327,284 @@ output$FieldCostSum <- renderText({
 #analysis - cost per sample and per number of toxin genes selecte
   output$qPCR_analysis <- renderText({
     if (length(input$qPCR > 1)) {
-      paste("qPCR analysis: $",qa1())}
+      paste("qPCR analysis: $", format(qa1(), big.mark = ",", scientific = FALSE))}
     else {
               "No qPCR analysis costs"}
   })
   
  output$Microscopy <- renderText({
    if (length(input$micros > 1)) {
-     paste("Microscopy ID: $",m1())}
+     paste("Microscopy ID: $", format(m1(), big.mark = ",", scientific = FALSE))}
    else {
              "No Microscopy ID costs"}
  }) 
 
-# output$CyanotoxSum <- renderText({
-#    if (length(input$ELISA) == 0 & length(input$qPCR) == 0 & length(input$micros) == 0) {
-#      paste("No cyantoxin analysis costs")
-#    } else 
-#      paste("Sum of cyanotoxin analyses costs: $", (e1()+qp1()+qa1()+m1()))
-#  }) 
- 
  output$CyanotoxSum <- renderText({
    if (CyanotoxSum() > 0) {
-     paste("Sum of cyanotoxin analyses costs: $", CyanotoxSum())}
+     paste("Sum of cyanotoxin analyses costs: $", format(CyanotoxSum(), big.mark = ",", scientific = FALSE))}
    else {
      "No cyantoxin analysis costs"}
    })
+
+ 
+#Summary Costs
+ 
+ output$siteCost <- renderText({
+   if (siteCost() > 0) {
+     paste("Cost for program at each waterbody: $", format(siteCost(), big.mark = ",", scientific = FALSE))}
+   else{
+     "Cannot calculate cost per site"
+   }
    
+ })
+ 
+ output$visitCost <- renderText({
+   if (siteCost() > 0) {
+     paste("Cost for each waterbody visit: $", format(visitCost(), big.mark = ",", scientific = FALSE))}
+   else{
+     "Cannot calculate cost per site"
+   }
    
-  output$table <- renderTable(explanation)    
+ })
+ 
+ output$program <- renderText({
+   if (prog() > 0) {
+     paste("Sum FHAB Monitoring Program Costs at", input$waterbodies, "waterbodies: $",
+           format(prog(), big.mark = ",", scientific = FALSE))}
+   else {
+     "Cannot calculate program costs"}
+ }) 
+ 
+    
+#Explanation tab output
+ 
+output$table <- renderTable(explanation)    
 
 
 #Plot
+# Create a new reactive expression to be called below.
+
+Perc_cost <- reactive({ c(
+  paste(round(((s1())/prog())*100, digits = 0), '%'),#s1
+  paste(round(((s2())/prog())*100, digits = 0), '%'),#s2
+  paste(round(((b1())/prog())*100, digits = 0), '%'),#s1
+  paste(round(((b2())/prog())*100, digits = 0), '%'),#s2
+  paste(round(((w1())/prog())*100, digits = 0), '%'),#s1
+  paste(round(((e1())/prog())*100, digits = 0), '%'),#s2
+  paste(round(((qp1())/prog())*100, digits = 0), '%'),#s1
+  paste(round(((qa1())/prog())*100, digits = 0), '%'),#s2
+  paste(round(((qa1())/prog())*100, digits = 0), '%')#m1
+)
+})
+
+Perc_cost_broad <- reactive({ c(
+  paste(round(((FieldCostSum())/prog())*100, digits = 0), '%'),#fieldwork
+  paste(round(((w1())/prog())*100, digits = 0), '%'),#water qual
+  paste(round(((CyanotoxSum())/prog())*100, digits = 0), '%')#cyano
+
+)
+})
+
+labs1 <- factor(c("First Shore St", "Additional Shore Sts.", "First Boat St", "Additional Boat Sts.", "Water Quality",
+  "ELISA", "qPCR Prep", "qPCR Analysis", "Microscopy"),
+  levels = c("First Shore St", "Additional Shore Sts.", "First Boat St", "Additional Boat Sts.", "Water Quality",
+           "ELISA", "qPCR Prep", "qPCR Analysis", "Microscopy"))
+
+labs2 <- factor(c("First\nShore St", "Additional\nShore Sts.", "First\nBoat St.", "Additional\nBoat Sts.", "Water\nQuality",
+  "ELISA", "qPCR Prep", "qPCR\nAnalysis", "Microscopy"),
+  levels = c("First\nShore St", "Additional\nShore Sts.", "First\nBoat St.", "Additional\nBoat Sts.", "Water\nQuality",
+             "ELISA", "qPCR Prep", "qPCR\nAnalysis", "Microscopy"))
+
+labs3 <- factor(c("Field\nWork", "Water\nQuality", "Cyanotxoin\nAnalysis"),
+                levels = c("Field\nWork", "Water\nQuality", "Cyanotxoin\nAnalysis"))
 
 #Create two data frames from reactive variables for plotting
 #a sub categories
-a <- reactive ( {
-  tibble(s1(), s2(), b1(), b2(), w1(), e1(), qp1(), qa1(), m1()) %>%
-  gather() %>%
-  rename("cost" = "value")
-  } )
+a_table <-   reactive ( {
+  tibble(shore1=format(s1(), big.mark = ",", scientific = FALSE),
+         shore2 =format(s2(), big.mark = ",", scientific = FALSE),
+         boat1=format(b1(), big.mark = ",", scientific = FALSE),
+         boat2=format(b2(), big.mark = ",", scientific = FALSE),
+         waterqual = format(w1(), big.mark = ",", scientific = FALSE),
+         ELISA = format(e1(), big.mark = ",", scientific = FALSE),
+         qPCR_prep = format(qp1(), big.mark = ",", scientific = FALSE),
+         qPCR_analysis = format(qa1(), big.mark = ",", scientific = FALSE),
+         microscopy = format(m1(), big.mark = ",", scientific = FALSE),) %>%
+  gather(factor_key = TRUE) %>%
+  rename("Cost" = "value") %>%
+    add_column(Percent = Perc_cost()) %>% 
+    add_column(Component2 = labs1) %>% 
+    select(Component2, Cost, Percent)
+} )
 
- # a$key() <- reactive ( {
- #   fct_relevel(a$key(), levels = c("s1", "s2", "b1", "b2", "w1", "e1", "qp1", "qa1", "m1"))
- # } )
+# a <-   reactive ( {
+#   tibble(shore1=s1(), shore2 =s2(), boat1=b1(), boat2=b2(), waterqual = w1(),
+#              ELISA = e1(),qPCR_prep = qp1(), qPCR_analysis = qa1(), microscopy = m1()) %>%
+#     gather(factor_key = TRUE) %>%
+#     rename("Cost" = "value") %>%
+#     add_column(Percent = Perc_cost()) %>% 
+#     add_column(Component2 = labs1) %>% 
+#     select(Component2, Cost, Percent)
+# } )
 
- #b broad categories
- b <- reactive ( {
-   tibble(FieldCostSum() , w1() , CyanotoxSum()) %>%
-   gather()%>%
-   rename("cost" = "value")
+labs2 <- factor(c("First\nShore St", "Additional\nShore Sts.", "First\nBoat St.", "Additional\nBoat Sts.", "Water\nQuality",
+                  "ELISA", "qPCR Prep", "qPCR\nAnalysis", "Microscopy"),
+                levels = c("First\nShore St", "Additional\nShore Sts.", "First\nBoat St.", "Additional\nBoat Sts.", "Water\nQuality",
+                           "ELISA", "qPCR Prep", "qPCR\nAnalysis", "Microscopy"))
+
+a <-   reactive ( {
+  tibble("First Shore St"=s1(),
+         "Additional Shore Sts." =s2(),
+         "First Boat St."=b1(),
+         "Additional Boat Sts."=b2(),
+         "Water Quality" = w1(),
+         "ELISA" = e1(),
+         "qPCR Prep" = qp1(),
+         "qPCR Analysis" = qa1(),
+         "Microscopy" = m1()) %>%
+    gather(factor_key = TRUE) %>%
+    rename("Cost" = "value") %>%
+    rename("Labels" = "key") %>% 
+    add_column(Percent = Perc_cost()) %>% 
+    filter(Cost > 0)
+} )
+
+
+#b broad categories
+b_table <- reactive ( {
+   tibble(FieldCostSum = format(FieldCostSum(), big.mark = ",", scientific = FALSE),
+          waterqual = format(w1(), big.mark = ",", scientific = FALSE),
+          CyanotoxSum = format(CyanotoxSum(), big.mark = ",", scientific = FALSE)) %>%
+   gather(factor_key = TRUE)%>%
+   rename("Cost" = "value") %>% 
+    add_column(Percent = Perc_cost_broad()) %>% 
+    add_column(Component1 = labs3) %>% 
+    select(Component1, Cost, Percent)
  } )
-# 
-# b$key <-fct_relevel(b$key, level = c("FieldCostSum", "w1", "CyanotoxSum"))
-# 
+
+b <- reactive ( {
+  tibble(FieldCostSum = FieldCostSum() , waterqual = w1() , CyanotoxSum = CyanotoxSum()) %>%
+    gather(factor_key = TRUE)%>%
+    rename("Cost" = "value") %>%
+    add_column(Percent = Perc_cost_broad()) %>%
+    add_column(Component1 = labs3) %>%
+    select(Component1, Cost, Percent)
+} )
+
+# b <- reactive ( {
+#   tibble("Field\nwork" = FieldCostSum(),
+#          "Water\nQuality" = w1(),
+#          "Cyanotoxin\nAnalyses" = CyanotoxSum()) %>%
+#     gather(factor_key = TRUE)%>%
+#     rename("Cost" = "value") %>% 
+#     rename("Labels" = "key")
+#     add_column(Percent = Perc_cost_broad()) %>% 
+#     filter(Cost > 0)
+# } )
+
+
 #FIRST LEVEL INSIDE THE SUNBURST
  
 myFirstLevel = reactive ( {
-  a() %>% summarize(total_cost=sum(cost))
+  a() %>% summarize(total_cost=sum(Cost))
   } )
 sum_total_cost = reactive ( {
-  sum(a()$cost)
+  sum(a()$Cost)
 } )
+
 
 #Visualize total cost
 sunburst_1 = reactive(
   ggplot() +
   geom_bar(data = myFirstLevel(), aes(x=1, y=total_cost), fill='darkgrey', stat='identity') +
-  geom_text(data = myFirstLevel(), aes(x=1, y=sum_total_cost()/2, label=paste('Total Field Cost = $\n',
+  geom_text(data = myFirstLevel(), aes(x=1, y=sum_total_cost()/2, label=paste('Total Field Cost = \n$',
             sum_total_cost())), color='white')
 )
-# 
-# myColors <- reactive({
-#   c(s1() = "#440154FF", 
-#               s2() = "#472D7BFF",   
-#               b1() = "#3B528BFF",
-#               b2() = "#2C728EFF",
-#               w1() = "#21908CFF", 
-#               e1() = "#27AD81FF", 
-#               qp1() = "#5DC863FF",
-#               qa1() = "#AADC32FF",
-#               m1() = "#FDE725FF",
-#               FieldCostSum() = "#472D7BFF", 
-#               CyanotoxSum() = "#85D54AFF")
-#               })
+
+#Define colors for next two levels of plotting
+
+# myColors <- c("First Shore St" = "#440154FF",
+#               "Additional Shore Sts." = "#481567FF",
+#               "First Boat St" = "#482677FF",
+#               "Additional Boat Sts." = "#453781FF",
+#               "Water Quality" = "#2D708EFF",
+#               "Water\nQuality" = "#28647FFF",
+#               "ELISA" = "#29AF7FFF",
+#               "qPCR Prep" = "#3CBB75FF",
+#               "qPCR Analysis" = "#55C667FF",
+#               "Microscopy" = "#95D840FF",
+#               "Field\nWork" = "#512B86FF",
+#               "Cyanotxoin\nAnalysis" = "#73D055FF")
 
 #Visualize total cost and stacked bar of subcategories
-sunburst_2.1 = reactive (
-sunburst_1() +
-  geom_bar(data=a(),
-           aes(x=2, y=cost, fill=fct_rev(key)),
-           color='white', position='stack', stat='identity', size=0.6) + 
-  geom_text(data=a(), aes(label=paste(key, cost), x=2, y=cost), position='stack') 
-)
 
+sunburst_3.1 =
+  reactive(
+  sunburst_1() +
+  #sunburst 2 - subdivisions
+  geom_bar(data=a(),aes(x=3, y=Cost, fill=fct_rev(Labels)),
+  #geom_bar(data=a(),aes(x=3, y=Cost, fill=Component2),
+           color='white', position='stack', stat='identity', size=0.6, alpha = 0.8) +
+  geom_text(data=a(), aes(label=paste(Labels), x=2.6, y=Cost), hjust = 0, position=position_stack(vjust = 0.5),
+            size=3)+
+  #sunburst 3 - 3 big categories
+  geom_bar(data=b(),aes(x=2, y=Cost, color=fct_rev(Component1)),
+           color = 'white', position='stack', stat='identity', size=0.6, alpha = 0.3) +
+  geom_text(data=b(), aes(label=paste(labs3), x=2, y=Cost), position=position_stack(vjust = 0.5),
+            size=4)+
+  #formatting
+  theme_classic()+
+  #scale_fill_manual(values = myColors)+
+  scale_fill_brewer(palette = "Spectral")+
+  theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank())+
+  theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank())+
+  labs(x="test", y="test")
+  )
+  
 
 #First, function to rotate text to a readable angle
 mySecondLevel = reactive ( {
   a() %>%
-  mutate(running=cumsum(cost), pos = running - cost/2) %>%
+  mutate(running=cumsum(Cost), pos = running - Cost/2) %>%
   group_by(1:n()) %>%
-  mutate(angle=compute_angle((running - cost/2) / sum_total_cost()))
+  mutate(angle=compute_angle((running - Cost/2) / sum_total_cost()))
 } )
-
-
-
-sunburst_2.2 = reactive(
-  sunburst_1() +
-  geom_bar(data=mySecondLevel(), aes(x=2, y=cost, fill=fct_rev(key)),
-           color='white', position='stack', stat = 'identity', size = 0.6) +
-  geom_text(data=mySecondLevel(),aes(label=paste(key),
-                                 x=2, y=pos, angle=angle))+
-  #scale_y_continuous(labels=comma) +
-  #scale_fill_continuous(low='white', high='darkred') +
-  scale_fill_viridis(discrete = TRUE)+
-  #scale_fill_manual(values = myColors)+
-  coord_polar('y') + theme_minimal()
-)
-
-#Third LEVEL INSIDE THE SUNBURST
-
-#Visualize as a stacked bar
-sunburst_3.1 =
-  reactive(
-sunburst_2.1() +
-  geom_bar(data=b(),
-           aes(x=3, y=cost, fill=fct_rev(key)),
-           color = 'white', position='stack', stat='identity', size=0.6) + 
-  geom_text(data=b(), aes(label=paste(key, cost), x=3, y=cost), position='stack')
-)
-#Function to rotate text to a readable angle should be run above
 
 myThirdLevel = reactive ( {
   b() %>%
-  mutate(running=cumsum(cost), pos = running - cost/2) %>%
-  group_by(1:n()) %>%
-  mutate(angle=compute_angle((running - cost/2) / sum_total_cost()))
+    mutate(running=cumsum(Cost), pos = running - Cost/2) %>%
+    group_by(1:n()) %>%
+    mutate(angle=compute_angle((running - Cost/2) / sum_total_cost()))
 } )
 
-sunburst_3.2 =
-  reactive(
-  sunburst_2.2() +
-  geom_bar(data=myThirdLevel(), aes(x=3, y=cost, fill=fct_rev(key)),
-           color='white', position='stack', stat = 'identity', size = 0.6) +
-  geom_text(data=myThirdLevel(),aes(label=paste(key),
-                                x=3, y=pos, angle=angle))
-)
+sunburst_3.2 = reactive(
+  sunburst_1() +
+  geom_bar(data=mySecondLevel(), aes(x=2, y=Cost, fill=fct_rev(Labels)),
+           color='white', position='stack', stat = 'identity', size = 0.6, alpha = 0.8) +
+  geom_text(data=mySecondLevel(),aes(label=paste(Labels),
+                                 x=2, y=pos, angle=angle, size = 2.5))+
+
+  geom_bar(data=myThirdLevel(), aes(x=3, y=Cost, color=fct_rev(Component1)),
+           color='white', position='stack', stat = 'identity', size = 0.6, alpha = 0.3) +
+  geom_text(data=myThirdLevel(),aes(label=paste(labs3),
+           x=3, y=pos, angle=angle, size = 2.5)) +
+
+  #scale_fill_manual(values = myColors)+
+  scale_fill_brewer(palette = "Spectral")+
+  coord_polar('y') + theme_minimal()    
+      )
+
+
 
 # #CREATE PLOT TAB OUTPUTS
 
-output$table_a <- renderTable(a())    
-output$table_b <- renderTable(b())
-
-output$myFirstLevel <- renderTable(myFirstLevel())
-output$mySecondLevel <- renderTable(mySecondLevel())
-output$myThirdLevel <- renderTable(myThirdLevel())
-
-output$sumTotalCost <- renderText(sum_total_cost())
-
-output$plot_level1 <- renderPlot( {sunburst_1() } ) 
-
-output$plot_level2.1 <- renderPlot( {sunburst_2.1() } ) 
-
-output$plot_level2.2 <- renderPlot( {sunburst_2.2() } ) 
+output$table_a <- renderTable({a_table()}) 
+output$table_b <- renderTable({b_table()}) 
 
 output$plot_level3.1 <- renderPlot( {sunburst_3.1()})
-
 output$plot_level3.2 <- renderPlot( {sunburst_3.2()})
 
 } #close out server script
-
-
-
 
 
 # Run the application (knit ui and server together)
