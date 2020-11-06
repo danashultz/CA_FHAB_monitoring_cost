@@ -131,15 +131,22 @@ img(src = "SWAMP_logo_RGB.png", height = 120, width = 100)
                  tags$b(tags$em(textOutput(outputId = "CyanotoxSum"))),
                  tags$hr(),
                  tags$h3("Total Cost of FHAB Monitoring Program"),
-                 textOutput(outputId = "siteCost"),
-                 textOutput(outputId = "visitCost"),
+                 tags$b(tags$em(textOutput(outputId = "visitCost"))),
+                 br(),
+                 tags$b(tags$em(textOutput(outputId = "siteCost"))),
+                 br(),
                  tags$b(tags$em(textOutput(outputId = "program"))),
+                 br(),
                  tags$hr()),
         
         tabPanel("Table and Plot",
+                 plotOutput('plot1'),
                  tableOutput('table_b'), 
+                 downloadButton("downloadBroadCategoryData", "Download Broad Category Costs"),
+                 br(),
+                 br(),
                  tableOutput('table_a'),
-                 plotOutput('plot1')),
+                 downloadButton("downloadCategoryData", "Download Category Costs")),
                  
         tabPanel("Explanation of Cost Calculations",
                  tableOutput('table_costCalculations'))
@@ -339,7 +346,7 @@ output$FieldCostSum <- renderText({
 #Cost for each lake - all visits to shore/boat sites and all analyses
  output$siteCost <- renderText({
    if (siteCost() > 0) {
-     paste("Cost for program at each waterbody: $", format(siteCost(), big.mark = ",", scientific = FALSE))}
+     paste("Cost for each waterbody: $", format(siteCost(), big.mark = ",", scientific = FALSE))}
    else{
      "Cannot calculate cost per site"
    }
@@ -348,7 +355,7 @@ output$FieldCostSum <- renderText({
 #Cost for each visit to each lake - shore/boat sites and all analyses of one visist
  output$visitCost <- renderText({
    if (siteCost() > 0) {
-     paste("Cost for each waterbody visit: $", format(visitCost(), big.mark = ",", scientific = FALSE))}
+     paste("Cost for each visit to each waterbody: $", format(visitCost(), big.mark = ",", scientific = FALSE))}
    else{
      "Cannot calculate cost per site"
    }
@@ -511,6 +518,24 @@ output$table_a <- renderTable({a_table()})
 output$table_b <- renderTable({b_table()}) 
 
 output$plot1 <- renderPlot({p1()})
+
+output$downloadBroadCategoryData <- downloadHandler(
+  filename = function() {
+    paste("FHAB_BroadCategory_Costs", ".csv", sep = "")
+  },
+  content = function(file) {
+    write.csv(b(), file, row.names = FALSE)
+  }
+)
+
+output$downloadCategoryData <- downloadHandler(
+  filename = function() {
+    paste("FHAB_Category_Costs", ".csv", sep = "")
+  },
+  content = function(file) {
+    write.csv(a(), file, row.names = FALSE)
+  }
+)
 
 } #close out server script
 
